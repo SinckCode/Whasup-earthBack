@@ -9,6 +9,7 @@ const { authRequired } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
+// Todas requieren auth
 router.get('/', authRequired, getSavedViews);
 router.post('/', authRequired, createSavedView);
 router.delete('/:id', authRequired, deleteSavedView);
