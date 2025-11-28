@@ -7,6 +7,8 @@ const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const savedViewRoutes = require('./routes/savedViewRoutes');
+const favoriteRoutes = require('./routes/favoriteRoutes');
 
 const app = express();
 
@@ -22,6 +24,8 @@ app.use(express.json());
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/saved-views', savedViewRoutes);
+app.use('/api/favorites', favoriteRoutes);
 
 app.get('/', (req, res) => {
   res.send('🌎 Whatsup-Earth API funcionando');
