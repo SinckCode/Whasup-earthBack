@@ -8,8 +8,9 @@ const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
-// Conexión a Mongo muy segura
+// Conexión a Mongo muy segura hard/soft
 // Cambio extra
+// Funcionando bien
 connectDB();
 
 // Middlewares
