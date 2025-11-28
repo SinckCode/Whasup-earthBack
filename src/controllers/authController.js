@@ -26,17 +26,20 @@ async function register(req, res) {
       return res.status(400).json({ message: 'Faltan datos obligatorios.' });
     }
 
-    const existing = await User.findOne({ email });
+    // Opcional: normalizar
+    const normalizedEmail = String(email).toLowerCase().trim();
+
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ message: 'El email ya está registrado.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(String(password), 10);
 
     const user = await User.create({
-      email,
+      email: normalizedEmail,
       passwordHash,
-      name,
+      name: name.trim(),
       country: country || 'MX',
     });
 
@@ -54,8 +57,17 @@ async function register(req, res) {
       },
     });
   } catch (err) {
-    console.error('Error en register:', err);
-    return res.status(500).json({ message: 'Error en el servidor' });
+    console.error('💥 Error en register:', err);
+    // Si es un error de clave duplicada de Mongo
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'El email ya está registrado.' });
+    }
+
+    return res.status(500).json({
+      message: 'Error en el servidor',
+      // Puedes quitar "detalle" cuando pases a producción
+      detalle: err.message,
+    });
   }
 }
 
@@ -68,12 +80,14 @@ async function login(req, res) {
       return res.status(400).json({ message: 'Email y contraseña son obligatorios.' });
     }
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = String(email).toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ message: 'Credenciales inválidas.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    const isMatch = await bcrypt.compare(String(password), user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ message: 'Credenciales inválidas.' });
     }
@@ -92,8 +106,11 @@ async function login(req, res) {
       },
     });
   } catch (err) {
-    console.error('Error en login:', err);
-    return res.status(500).json({ message: 'Error en el servidor' });
+    console.error('💥 Error en login:', err);
+    return res.status(500).json({
+      message: 'Error en el servidor',
+      detalle: err.message,
+    });
   }
 }
 
