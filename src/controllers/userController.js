@@ -1,79 +1,116 @@
 // src/controllers/userController.js
-const User = require('../models/User');
+const { User, UserPreference } = require('../models/sql');
+const { logActivity } = require('./activityController');
 
 // GET /api/users/me
-async function getMe(req, res) {
-  const user = req.user; // viene del authMiddleware
-
-  return res.json({
-    id: user._id,
-    email: user.email,
-    name: user.name,
-    country: user.country,
-    role: user.role,
-    preferences: user.preferences,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  });
-}
-
-// PUT /api/users/me  (actualizar nombre / país)
-async function updateMe(req, res) {
+async function getMe(req, res, next) {
   try {
-    const user = req.user;
-    const { name, country } = req.body;
+    const user = req.user; // viene del authMiddleware
 
-    if (!name && !country) {
-      return res.status(400).json({ message: 'Nada que actualizar.' });
-    }
-
-    if (name) user.name = name.trim();
-    if (country) user.country = country;
-
-    await user.save();
+    // Fetch preferences
+    const preferences = await UserPreference.findOne({
+      where: { userId: user.id },
+    });
 
     return res.json({
-      id: user._id,
+      id: user.id,
       email: user.email,
       name: user.name,
       country: user.country,
       role: user.role,
-      preferences: user.preferences,
+      avatar: user.avatar,
+      bio: user.bio,
+      isVerified: user.isVerified,
+      preferences: preferences || {},
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     });
   } catch (err) {
-    console.error('💥 Error en updateMe:', err);
-    return res.status(500).json({ message: 'Error en el servidor' });
+    next(err);
   }
 }
 
-// PUT /api/users/me/preferences  (tema, categoría por defecto, etc.)
-async function updatePreferences(req, res) {
+// PUT /api/users/me (actualizar nombre / país)
+async function updateMe(req, res, next) {
   try {
     const user = req.user;
-    const { theme, defaultCategory, defaultView, defaultTimeRange } = req.body;
+    const { name, country } = req.body;
 
-    if (!user.preferences) user.preferences = {};
+    // Update user fields
+    const updates = {};
+    if (name) updates.name = name.trim();
+    if (country) updates.country = country;
 
-    if (theme) user.preferences.theme = theme;
-    if (defaultCategory) user.preferences.defaultCategory = defaultCategory;
-    if (defaultView) user.preferences.defaultView = defaultView;
-    if (defaultTimeRange) user.preferences.defaultTimeRange = defaultTimeRange;
+    await user.update(updates);
 
-    await user.save();
+    // Log activity
+    await logActivity(user.id, 'update_profile', updates, req.ip);
+
+    // Fetch preferences
+    const preferences = await UserPreference.findOne({
+      where: { userId: user.id },
+    });
 
     return res.json({
-      id: user._id,
+      id: user.id,
       email: user.email,
       name: user.name,
       country: user.country,
       role: user.role,
-      preferences: user.preferences,
+      avatar: user.avatar,
+      bio: user.bio,
+      isVerified: user.isVerified,
+      preferences: preferences || {},
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     });
   } catch (err) {
-    console.error('💥 Error en updatePreferences:', err);
-    return res.status(500).json({ message: 'Error en el servidor' });
+    next(err);
+  }
+}
+
+// PUT /api/users/me/preferences (tema, categoría por defecto, etc.)
+async function updatePreferences(req, res, next) {
+  try {
+    const user = req.user;
+    const { theme, defaultCategory, defaultView, defaultTimeRange } = req.body;
+
+    // Find or create preferences
+    let preferences = await UserPreference.findOne({
+      where: { userId: user.id },
+    });
+
+    if (!preferences) {
+      preferences = await UserPreference.create({
+        userId: user.id,
+        theme: theme || 'light',
+        defaultCategory: defaultCategory || null,
+        defaultView: defaultView || 'map',
+        defaultTimeRange: defaultTimeRange || '7d',
+      });
+    } else {
+      const updates = {};
+      if (theme !== undefined) updates.theme = theme;
+      if (defaultCategory !== undefined) updates.defaultCategory = defaultCategory;
+      if (defaultView !== undefined) updates.defaultView = defaultView;
+      if (defaultTimeRange !== undefined) updates.defaultTimeRange = defaultTimeRange;
+
+      await preferences.update(updates);
+    }
+
+    // Log activity
+    await logActivity(user.id, 'update_preferences', req.body, req.ip);
+
+    return res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      country: user.country,
+      role: user.role,
+      preferences: preferences.toJSON(),
+    });
+  } catch (err) {
+    next(err);
   }
 }
 

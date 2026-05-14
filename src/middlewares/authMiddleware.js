@@ -1,8 +1,7 @@
 // src/middlewares/authMiddleware.js
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_change_me';
+const { User } = require('../models/sql');
+const { JWT_SECRET } = require('../config/constants');
 
 async function authRequired(req, res, next) {
   try {
