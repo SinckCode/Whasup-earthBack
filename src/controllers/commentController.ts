@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import Comment from '../models/mongo/Comment';
 import EventStats from '../models/mongo/EventStats';
+import Notification from '../models/sql/Notification';
 import { logActivity } from './activityController';
 
 // GET /api/comments?eventId=xxx - Obtener comentarios de un evento (público)
@@ -72,6 +73,41 @@ async function createComment(req: AuthRequest, res: Response, next: NextFunction
       { $inc: { commentCount: 1 } },
       { upsert: true, new: true }
     );
+
+    // Notificaciones automáticas
+    try {
+      if (parentId) {
+        // Respuesta a un comentario: notificar al autor del comentario padre
+        const parentComment = await Comment.findById(parentId);
+        if (parentComment && parentComment.userId !== user.id) {
+          await Notification.create({
+            userId: parentComment.userId,
+            type: 'system',
+            title: 'Nueva respuesta a tu comentario',
+            message: `${user.name} respondió a tu comentario en "${eventId}": "${content.substring(0, 80)}${content.length > 80 ? '…' : ''}"`,
+            eventId,
+          });
+        }
+      } else {
+        // Comentario nuevo: notificar a otros usuarios que han comentado en este evento
+        const otherCommenters = await Comment.distinct('userId', {
+          eventId,
+          userId: { $ne: user.id },
+        });
+        if (otherCommenters.length > 0) {
+          const notifications = otherCommenters.map((uid: number) => ({
+            userId: uid,
+            type: 'event_update' as const,
+            title: 'Nuevo comentario en un evento que sigues',
+            message: `${user.name} comentó en "${eventId}": "${content.substring(0, 80)}${content.length > 80 ? '…' : ''}"`,
+            eventId,
+          }));
+          await Notification.bulkCreate(notifications);
+        }
+      }
+    } catch (notifErr) {
+      console.error('Error creando notificaciones de comentario:', notifErr);
+    }
 
     // Log activity
     await logActivity(user.id, 'create_comment', { eventId, commentId: comment._id }, req.ip);

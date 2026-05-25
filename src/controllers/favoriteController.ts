@@ -2,6 +2,8 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import Favorite from '../models/mongo/Favorite';
+import EventStats from '../models/mongo/EventStats';
+import Notification from '../models/sql/Notification';
 import { logActivity } from './activityController';
 
 // POST /api/favorites
@@ -34,6 +36,30 @@ async function addFavorite(req: AuthRequest, res: Response, next: NextFunction) 
       severity,
       magnitude,
     });
+
+    // Incrementar favoriteCount en EventStats
+    try {
+      await EventStats.findOneAndUpdate(
+        { eventId },
+        { $inc: { favoriteCount: 1 } },
+        { upsert: true, new: true }
+      );
+    } catch (statsErr) {
+      console.error('Error actualizando EventStats:', statsErr);
+    }
+
+    // Notificación: confirmar al usuario que se guardó el favorito
+    try {
+      await Notification.create({
+        userId: user.id,
+        type: 'system',
+        title: 'Evento guardado en favoritos',
+        message: `"${title || eventId}" se agregó a tus favoritos.`,
+        eventId,
+      });
+    } catch (notifErr) {
+      console.error('Error creando notificación de favorito:', notifErr);
+    }
 
     // Log activity
     await logActivity(user.id, 'create_favorite', { eventId, category }, req.ip);
@@ -74,6 +100,17 @@ async function deleteFavorite(req: AuthRequest, res: Response, next: NextFunctio
       const err: any = new Error('Favorito no encontrado.');
       err.statusCode = 404;
       throw err;
+    }
+
+    // Decrementar favoriteCount en EventStats
+    try {
+      await EventStats.findOneAndUpdate(
+        { eventId: fav.eventId },
+        { $inc: { favoriteCount: -1 } },
+        { upsert: true, new: true }
+      );
+    } catch (statsErr) {
+      console.error('Error actualizando EventStats:', statsErr);
     }
 
     // Log activity
