@@ -26,7 +26,7 @@ const User = sequelize.define('User', {
   email:        { type: DataTypes.STRING(255), unique: true, allowNull: false },
   passwordHash: { type: DataTypes.STRING(255), allowNull: false },
   name:         { type: DataTypes.STRING(100), allowNull: false },
-  country:      { type: DataTypes.STRING(100) },
+  country:      { type: DataTypes.STRING(2), defaultValue: 'MX' },
   role:         { type: DataTypes.ENUM('user', 'admin'), defaultValue: 'user' },
   avatar:       { type: DataTypes.STRING(500) },
   bio:          { type: DataTypes.TEXT },
@@ -47,9 +47,9 @@ const Notification = sequelize.define('Notification', {
 }, { tableName: 'notifications', timestamps: true });
 
 const TEST_USERS = [
-  { name: 'María García',   email: 'maria@test.com',   country: 'México' },
-  { name: 'Carlos López',   email: 'carlos@test.com',  country: 'Colombia' },
-  { name: 'Ana Rodríguez',  email: 'ana@test.com',     country: 'España' },
+  { name: 'María García',   email: 'maria@test.com',   country: 'MX' },
+  { name: 'Carlos López',   email: 'carlos@test.com',  country: 'CO' },
+  { name: 'Ana Rodríguez',  email: 'ana@test.com',     country: 'ES' },
 ];
 
 const PASSWORD = 'Test1234';
